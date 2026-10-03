@@ -7,7 +7,7 @@
    2. Catatan Pengeluaran Harian
    3. Bookmark / Link Manager
    4. Kuis Interaktif
-   5. Navigasi tab (State disimpan murni di LocalStorage)
+   5. Navigasi tab (State disimpan di LocalStorage & URL Query)
    Tiap fitur dibungkus IIFE sendiri agar state-nya terisolasi,
    dan memakai key localStorage berbeda agar data tidak saling menimpa.
    ===================================================== */
@@ -759,20 +759,25 @@ document.addEventListener('submit', (e) => {
 })();
 
 /* =====================================================
-   5. NAVIGASI TAB
-   Tanpa router, URL selalu tetap di /.
+   5. NAVIGASI TAB & ROUTER QUERY
+   Menggunakan parameter query URL (?tab=...) agar dapat
+   dibagikan (public path) tanpa error 404 di server statis.
    Prioritas saat halaman dibuka:
-   tab terakhir (localStorage) > tab pertama.
+   URL query (?tab=) > tab terakhir (localStorage) > tab pertama.
    ===================================================== */
 (() => {
   const BASE_TITLE = 'Toolkit Harian';
   const tabs = $$('[role="tab"]');
   const byRoute = (r) => tabs.find((t) => t.dataset.route === r);
+  
+  // Ambil rute dari query parameter (?tab=pengeluaran)
+  const queryRoute = () => new URLSearchParams(window.location.search).get('tab');
   const readSaved = () => { try { return localStorage.getItem(STORAGE_KEYS.tab); } catch { return null; } };
   let current = null;
 
   // Tampilkan satu panel, sembunyikan sisanya, perbarui judul dokumen & simpan rute
   function show(tab, { focus = false } = {}) {
+    if (!tab) return;
     tabs.forEach((t) => {
       const active = t === tab;
       t.setAttribute('aria-selected', String(active));
@@ -787,15 +792,20 @@ document.addEventListener('submit', (e) => {
     if (focus) tab.focus();
   }
 
+  // Pindah rute: ubah URL agar bisa dibagikan
   function go(tab, opts) {
+    const targetQuery = `?tab=${tab.dataset.route}`;
+    if (window.location.search !== targetQuery) {
+      history.pushState(null, '', window.location.pathname + targetQuery);
+    }
     show(tab, opts);
   }
 
   tabs.forEach((tab, i) => {
     tab.addEventListener('click', (e) => { e.preventDefault(); go(tab); });
-    // Keyboard: panah kiri/kanan, Home, End, Spasi, atau Enter
+    // Keyboard: panah kiri/kanan, Home, End, Spasi (Enter sudah memicu klik pada tautan)
     tab.addEventListener('keydown', (e) => {
-      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); go(tab); return; }
+      if (e.key === ' ') { e.preventDefault(); go(tab); return; }
       const target = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
       if (target === undefined) return;
       e.preventDefault();
@@ -803,7 +813,16 @@ document.addEventListener('submit', (e) => {
     });
   });
 
-  // Rute awal
-  const initial = byRoute(readSaved()) || tabs[0];
+  // Saat tombol Back/Forward browser ditekan
+  window.addEventListener('popstate', () => {
+    const tab = byRoute(queryRoute());
+    if (tab) show(tab);
+    else history.replaceState(null, '', window.location.pathname + `?tab=${current}`);
+  });
+
+  // Rute awal: prioritaskan query parameter, fallback ke localStorage, fallback ke tab 1
+  const initial = byRoute(queryRoute()) || byRoute(readSaved()) || tabs[0];
+  // Pastikan URL selalu rapi dengan parameter query
+  try { history.replaceState(null, '', window.location.pathname + `?tab=${initial.dataset.route}`); } catch { /* abaikan */ }
   show(initial);
 })();
