@@ -7,7 +7,7 @@
    2. Catatan Pengeluaran Harian
    3. Bookmark / Link Manager
    4. Kuis Interaktif
-   5. Router (3 URL path) & navigasi tab
+   5. Navigasi tab (State disimpan murni di LocalStorage)
    Tiap fitur dibungkus IIFE sendiri agar state-nya terisolasi,
    dan memakai key localStorage berbeda agar data tidak saling menimpa.
    ===================================================== */
@@ -759,19 +759,15 @@ document.addEventListener('submit', (e) => {
 })();
 
 /* =====================================================
-   5. ROUTER & NAVIGASI TAB
-   Satu file HTML, tiga path lewat URL bersih:
-     /pengeluaran   /bookmark   /kuis
-   Membutuhkan web server lokal untuk fallback ke index.html.
+   5. NAVIGASI TAB
+   Tanpa router, URL selalu tetap di /.
    Prioritas saat halaman dibuka:
-   URL > tab terakhir (localStorage) > tab pertama.
+   tab terakhir (localStorage) > tab pertama.
    ===================================================== */
 (() => {
   const BASE_TITLE = 'Toolkit Harian';
   const tabs = $$('[role="tab"]');
   const byRoute = (r) => tabs.find((t) => t.dataset.route === r);
-  // Ambil route dari URL pathname (misal: /pengeluaran -> pengeluaran)
-  const pathRoute = () => window.location.pathname.replace(/^\/+/, '').split(/[/?#]/)[0];
   const readSaved = () => { try { return localStorage.getItem(STORAGE_KEYS.tab); } catch { return null; } };
   let current = null;
 
@@ -791,20 +787,15 @@ document.addEventListener('submit', (e) => {
     if (focus) tab.focus();
   }
 
-  // Pindah rute: ubah URL menggunakan pushState agar riwayat tersimpan dan tampilan berubah tanpa muat ulang
   function go(tab, opts) {
-    const target = `/${tab.dataset.route}`;
-    if (window.location.pathname !== target) {
-      history.pushState(null, '', target);
-    }
     show(tab, opts);
   }
 
   tabs.forEach((tab, i) => {
     tab.addEventListener('click', (e) => { e.preventDefault(); go(tab); });
-    // Keyboard: panah kiri/kanan, Home, End, Spasi (Enter sudah memicu klik pada tautan)
+    // Keyboard: panah kiri/kanan, Home, End, Spasi, atau Enter
     tab.addEventListener('keydown', (e) => {
-      if (e.key === ' ') { e.preventDefault(); go(tab); return; }
+      if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); go(tab); return; }
       const target = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
       if (target === undefined) return;
       e.preventDefault();
@@ -812,15 +803,7 @@ document.addEventListener('submit', (e) => {
     });
   });
 
-  // Tombol Back/Forward ditekan pada browser
-  window.addEventListener('popstate', () => {
-    const tab = byRoute(pathRoute());
-    if (tab) show(tab);
-    else history.replaceState(null, '', `/${current}`);
-  });
-
-  // Rute awal; replaceState merapikan URL tanpa menambah riwayat
-  const initial = byRoute(pathRoute()) || byRoute(readSaved()) || tabs[0];
-  try { history.replaceState(null, '', `/${initial.dataset.route}`); } catch { /* abaikan */ }
+  // Rute awal
+  const initial = byRoute(readSaved()) || tabs[0];
   show(initial);
 })();
