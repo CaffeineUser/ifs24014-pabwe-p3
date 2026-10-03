@@ -531,3 +531,228 @@ document.addEventListener('submit', (e) => {
   initForms();
   render();
 })();
+
+/* =====================================================
+   QUIZ APP
+   Soal berupa array of object; skor tertinggi disimpan
+   di localStorage dengan key sendiri.
+   ===================================================== */
+(() => {
+  const STORAGE_KEY = 'quiz-app:v1:highscore';
+  const SECONDS_PER_QUESTION = 20;
+
+  // Bank soal: tambah objek baru di sini, UI menyesuaikan otomatis.
+  const QUESTIONS = [
+    { question: 'Elemen HTML semantik mana yang tepat untuk menandai navigasi utama situs?',
+      options: ['<nav>', '<div class="nav">', '<section>', '<aside>'], answer: 0,
+      explanation: '<nav> memberi makna landmark navigasi sehingga mudah dikenali pembaca layar dan mesin pencari.' },
+    { question: 'Properti CSS mana yang mengatur jarak di dalam sebuah elemen, antara konten dan border?',
+      options: ['margin', 'padding', 'gap', 'outline-offset'], answer: 1,
+      explanation: 'padding mengatur ruang di dalam border, sedangkan margin mengatur jarak di luar border.' },
+    { question: 'Metode array mana yang mengembalikan array baru berisi elemen yang memenuhi suatu syarat?',
+      options: ['forEach', 'push', 'filter', 'find'], answer: 2,
+      explanation: 'filter menghasilkan array baru. find hanya mengembalikan satu elemen pertama yang cocok.' },
+    { question: 'Apa hasil dari typeof null di JavaScript?',
+      options: ['"null"', '"undefined"', '"object"', '"number"'], answer: 2,
+      explanation: 'Ini perilaku historis JavaScript yang dipertahankan demi kompatibilitas.' },
+    { question: 'Cara paling aman menyisipkan teks dari pengguna ke DOM untuk menghindari XSS adalah …',
+      options: ['innerHTML', 'outerHTML', 'document.write', 'textContent'], answer: 3,
+      explanation: 'textContent memperlakukan masukan sebagai teks biasa, bukan markup HTML.' },
+    { question: 'Atribut mana yang sebaiknya dipasang bersama target="_blank" pada tautan eksternal?',
+      options: ['rel="noopener noreferrer"', 'rel="stylesheet"', 'download', 'hreflang="id"'], answer: 0,
+      explanation: 'noopener mencegah halaman tujuan mengakses window.opener milik halaman Anda.' },
+    { question: 'Apa fungsi localStorage.setItem("k", "v")?',
+      options: ['Menyimpan pasangan key–value di peramban dan tetap ada setelah ditutup', 'Menyimpan data di server selama 24 jam', 'Menyimpan data hanya sampai tab ditutup', 'Mengirim cookie ke server pada tiap permintaan'], answer: 0,
+      explanation: 'localStorage bertahan sampai dihapus. Data yang hilang saat tab ditutup adalah sessionStorage.' },
+    { question: 'Operator === di JavaScript membandingkan …',
+      options: ['nilai dan tipe tanpa konversi tipe', 'hanya nilai dengan konversi tipe', 'hanya tipe data', 'alamat memori untuk semua tipe'], answer: 0,
+      explanation: '=== bersifat strict, jadi 5 === "5" bernilai false. Operator == melakukan konversi tipe.' }
+  ].filter((q) => q.question && Array.isArray(q.options) && q.options.length >= 4 &&
+    Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length);
+
+  const $ = (id) => document.getElementById(id);
+  const el = {
+    start: $('quiz-start'), play: $('quiz-play'), result: $('quiz-result'),
+    intro: $('quiz-intro'), hs: $('quiz-hs'), timerOn: $('quiz-timer-on'), startBtn: $('quiz-start-btn'),
+    step: $('quiz-step'), timer: $('quiz-timer'), progress: $('quiz-progress'),
+    legend: $('quiz-q'), options: $('quiz-options'), err: $('quiz-err'), feedback: $('quiz-feedback'),
+    answerBtn: $('quiz-answer'), nextBtn: $('quiz-next'),
+    resultTitle: $('quiz-result-title'), score: $('quiz-score'), msg: $('quiz-msg'),
+    hsNote: $('quiz-hs-note'), review: $('quiz-review'), again: $('quiz-again')
+  };
+
+  const state = { phase: 'idle', round: [], index: 0, score: 0, answers: [], useTimer: true,
+    deadline: 0, timerId: null, qStart: 0, elapsed: 0 };
+
+  /* ---------- Util ---------- */
+  const shuffle = (arr) => {
+    const a = [...arr];
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+    }
+    return a;
+  };
+  const make = (tag, props = {}, text = '') => { const n = document.createElement(tag); Object.assign(n, props); if (text) n.textContent = text; return n; };
+  const screen = (name) => { el.start.hidden = name !== 'start'; el.play.hidden = name !== 'play'; el.result.hidden = name !== 'result'; };
+
+  /* ---------- High score ---------- */
+  function loadHigh() {
+    try {
+      const h = JSON.parse(localStorage.getItem(STORAGE_KEY) || 'null');
+      return h && Number.isInteger(h.score) && Number.isInteger(h.total) && h.total > 0 && Number.isFinite(h.seconds) ? h : null;
+    } catch { return null; }
+  }
+  function saveHigh(rec) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rec)); } catch { /* penyimpanan tidak tersedia */ } }
+  // Lebih baik = rasio benar lebih tinggi; jika sama, waktu lebih singkat.
+  const isBetter = (a, b) => !b || a.score * b.total > b.score * a.total ||
+    (a.score * b.total === b.score * a.total && a.seconds < b.seconds);
+  const describe = (h) => `${h.score} / ${h.total} (${h.seconds} dtk)`;
+
+  function renderHigh() {
+    const h = loadHigh();
+    el.hs.textContent = h ? `Skor tertinggi Anda: ${describe(h)}.` : 'Belum ada skor tertinggi. Selesaikan kuis untuk mencatatnya.';
+  }
+
+  /* ---------- Timer (berbasis deadline agar tidak melenceng) ---------- */
+  function stopTimer() { clearInterval(state.timerId); state.timerId = null; }
+  function tick() {
+    const left = Math.max(0, Math.ceil((state.deadline - Date.now()) / 1000));
+    const txt = `Sisa waktu: ${left} dtk`;
+    if (el.timer.textContent !== txt) { el.timer.textContent = txt; el.timer.classList.toggle('low', left <= 5); }
+    if (left === 0) grade(null);
+  }
+  function startTimer() {
+    stopTimer();
+    state.deadline = Date.now() + SECONDS_PER_QUESTION * 1000;
+    el.timer.hidden = false;
+    tick();
+    state.timerId = setInterval(tick, 250);
+  }
+
+  /* ---------- Alur kuis ---------- */
+  function startQuiz() {
+    if (!QUESTIONS.length) return;
+    // Acak urutan soal dan opsi; kunci jawaban dilacak lewat properti correct
+    state.round = shuffle(QUESTIONS).map((q) => ({
+      q, opts: shuffle(q.options.map((text, i) => ({ text, correct: i === q.answer })))
+    }));
+    Object.assign(state, { index: 0, score: 0, answers: [], elapsed: 0, useTimer: el.timerOn.checked });
+    screen('play');
+    showQuestion();
+  }
+
+  function showQuestion() {
+    const item = state.round[state.index];
+    const last = state.index === state.round.length - 1;
+    state.phase = 'playing';
+    el.step.textContent = `Soal ${state.index + 1} dari ${state.round.length}`;
+    el.progress.max = state.round.length;
+    el.progress.value = state.index;
+    el.legend.textContent = item.q.question;
+    el.options.replaceChildren(...item.opts.map((o, i) => {
+      const label = make('label', { className: 'opt' });
+      label.append(make('input', { type: 'radio', name: 'answer', value: String(i) }), make('span', {}, o.text));
+      return label;
+    }));
+    el.feedback.replaceChildren();
+    el.feedback.className = 'fb';
+    el.err.hidden = true;
+    el.answerBtn.hidden = false;
+    el.nextBtn.hidden = true;
+    el.nextBtn.textContent = last ? 'Lihat hasil' : 'Soal berikutnya';
+    state.qStart = Date.now();
+    if (state.useTimer) startTimer(); else { stopTimer(); el.timer.hidden = true; }
+    el.legend.focus();
+  }
+
+  // Penilaian: choice = indeks opsi, atau null jika waktu habis
+  function grade(choice) {
+    if (state.phase !== 'playing') return;
+    stopTimer();
+    state.elapsed += Date.now() - state.qStart;
+    const item = state.round[state.index];
+    const correctIdx = item.opts.findIndex((o) => o.correct);
+    const ok = choice === correctIdx;
+    if (ok) state.score++;
+    state.answers.push({ question: item.q.question, chosen: choice === null ? null : item.opts[choice].text,
+      correct: item.opts[correctIdx].text, ok, explanation: item.q.explanation });
+    state.phase = 'answered';
+
+    [...el.options.children].forEach((label, i) => {
+      label.firstElementChild.disabled = true;
+      const mark = (cls, text) => { label.classList.add(cls); label.append(make('strong', { className: 'mark' }, text)); };
+      if (i === correctIdx) mark('ok', 'Jawaban benar');
+      else if (i === choice) mark('bad', 'Jawaban Anda salah');
+    });
+    const lead = ok ? 'Benar! ' : choice === null ? 'Waktu habis. ' : 'Kurang tepat. ';
+    el.feedback.className = `fb ${ok ? 'ok' : 'bad'}`;
+    el.feedback.replaceChildren(make('p', {}, lead + item.q.explanation));
+    el.err.hidden = true;
+    el.answerBtn.hidden = true;
+    el.nextBtn.hidden = false;
+    el.timer.classList.remove('low');
+    el.nextBtn.focus();
+  }
+
+  function finish() {
+    state.phase = 'done';
+    const total = state.round.length;
+    const pct = Math.round((state.score / total) * 100);
+    const rec = { score: state.score, total, seconds: Math.round(state.elapsed / 1000), date: new Date().toISOString() };
+    const prev = loadHigh();
+
+    let note;
+    if (state.score > 0 && isBetter(rec, prev)) { saveHigh(rec); note = `Rekor baru! Skor tertinggi kini ${describe(rec)}.`; }
+    else if (prev) note = `Skor tertinggi Anda tetap ${describe(prev)}.`;
+    else note = 'Jawab minimal satu soal dengan benar untuk menyimpan skor tertinggi.';
+
+    el.score.replaceChildren(
+      make('span', { ariaHidden: 'true' }, `${state.score} / ${total}`),
+      make('span', { className: 'vh' }, `${state.score} dari ${total} soal benar`));
+    el.msg.textContent = `${pct}% benar. ` + (pct >= 90 ? 'Luar biasa!' : pct >= 70 ? 'Bagus, tinggal sedikit lagi.' : pct >= 50 ? 'Lumayan, terus berlatih.' : 'Jangan menyerah, coba lagi.')
+      + ` Waktu menjawab: ${rec.seconds} dtk.`;
+    el.hsNote.textContent = note;
+
+    el.review.replaceChildren(...state.answers.map((a) => {
+      const li = make('li');
+      li.append(make('strong', {}, a.question),
+        make('p', {}, `Jawaban Anda: ${a.chosen ?? 'tidak dijawab (waktu habis)'} — ${a.ok ? 'benar' : 'salah'}`));
+      if (!a.ok) li.append(make('p', {}, `Jawaban benar: ${a.correct}`));
+      li.append(make('p', {}, a.explanation));
+      return li;
+    }));
+    el.progress.value = total;
+    renderHigh();
+    screen('result');
+    el.resultTitle.focus();
+  }
+
+  /* ---------- Event ---------- */
+  el.startBtn.addEventListener('click', startQuiz);
+  el.again.addEventListener('click', startQuiz);
+  el.nextBtn.addEventListener('click', () => {
+    if (state.phase !== 'answered') return;
+    state.index++;
+    if (state.index >= state.round.length) finish(); else showQuestion();
+  });
+  el.play.addEventListener('submit', (e) => {
+    e.preventDefault();
+    if (state.phase !== 'playing') return;
+    const checked = el.play.querySelector('input[name="answer"]:checked');
+    if (!checked) {
+      el.err.textContent = 'Pilih salah satu jawaban sebelum menekan Jawab.';
+      el.err.hidden = false;
+      el.play.querySelector('input[name="answer"]').focus();
+      return;
+    }
+    grade(Number(checked.value));
+  });
+  el.options.addEventListener('change', () => { el.err.hidden = true; });
+
+  /* ---------- Init ---------- */
+  el.intro.textContent = `${QUESTIONS.length} soal pilihan ganda tentang HTML, CSS, dan JavaScript. Urutan soal dan opsi diacak setiap kali main.`;
+  el.startBtn.disabled = QUESTIONS.length === 0;
+  renderHigh();
+  screen('start');
+})();
