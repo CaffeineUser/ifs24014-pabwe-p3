@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Catatan Harian – Expense Tracker dan Bookmark Manager</title>
-<meta name="description" content="Catat pemasukan dan pengeluaran harian, simpan tautan favorit dengan kategori, cari dan urutkan. Data tersimpan di perangkat Anda.">
+<title>Toolkit Harian – Expense Tracker, Bookmark Manager, dan Kuis Web</title>
+<meta name="description" content="Catat pemasukan dan pengeluaran, simpan tautan favorit, dan uji pengetahuan web lewat kuis interaktif. Data tersimpan di perangkat Anda.">
 <meta name="robots" content="index, follow">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#0f5c4d">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Catatan Harian: Expense Tracker dan Bookmark">
-<meta property="og:description" content="Pantau keuangan harian dan simpan tautan favorit. Data tersimpan di perangkat Anda.">
+<meta property="og:title" content="Toolkit Harian: Expense Tracker, Bookmark, dan Kuis">
+<meta property="og:description" content="Pantau keuangan, simpan tautan favorit, dan uji pengetahuan web. Data tersimpan di perangkat Anda.">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f5c4d'/%3E%3Cpath d='M9 22V10h14M9 16h10M9 22h14' stroke='%23fff' stroke-width='3' fill='none'/%3E%3C/svg%3E">
 <script src="assets/script.js" defer></script>
@@ -77,20 +77,49 @@ textarea{width:100%;min-height:5rem;padding:.5rem .625rem;font:inherit;color:inh
 .bm h3 a{color:var(--ink)}
 .bm .url{margin:0;font-size:.875rem}
 .bm .note{margin:0;color:var(--muted);overflow-wrap:anywhere}
+.quiz{max-width:42rem;margin:0 auto}
+.qhead{display:flex;justify-content:space-between;gap:.5rem 1rem;flex-wrap:wrap;font-weight:600;margin-bottom:.5rem}
+.qhead p{margin:0}
+.timer.low{color:var(--out)}
+progress{width:100%;height:.625rem;accent-color:var(--brand);margin-bottom:1rem}
+.qset{border:0;margin:0;padding:0;min-width:0}
+.qset legend{font-weight:700;font-size:1.125rem;padding:0;margin-bottom:.75rem;overflow-wrap:anywhere}
+.opts{display:grid;gap:.5rem}
+.opt{display:flex;flex-wrap:wrap;gap:.25rem .75rem;align-items:center;padding:.625rem .75rem;min-height:44px;margin:0;font-weight:400;border:2px solid var(--line);border-radius:.5rem;background:var(--bg);cursor:pointer}
+.opt input{width:1.25rem;height:1.25rem;min-height:0;padding:0;flex:none;accent-color:var(--brand)}
+.opt span{flex:1;overflow-wrap:anywhere}
+.opt:has(input:checked){border-color:var(--brand)}
+.opt:focus-within{outline:3px solid var(--focus);outline-offset:2px}
+.opt.ok{border-color:var(--in);background:var(--in-bg);color:var(--in)}
+.opt.bad{border-color:var(--out);background:var(--out-bg);color:var(--out)}
+.mark{font-size:.875rem}
+.fb{margin:1rem 0 0;padding:.75rem;border-radius:.5rem;border:1px solid var(--line)}
+.fb:empty{display:none}
+.fb.ok{background:var(--in-bg);color:var(--in)}
+.fb.bad{background:var(--out-bg);color:var(--out)}
+.fb p{margin:0}
+.big{font-size:2.5rem;font-weight:800;line-height:1.1;margin:.25rem 0;font-variant-numeric:tabular-nums}
+.chk{display:flex;gap:.625rem;align-items:center;font-weight:400;min-height:44px;cursor:pointer}
+.chk input{width:1.25rem;height:1.25rem;min-height:0;padding:0;flex:none;accent-color:var(--brand)}
+summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
+#quiz-review{padding-left:1.25rem;display:grid;gap:.75rem}
+#quiz-review p{margin:.125rem 0}
+h3:focus,legend:focus{outline-offset:4px}
 </style>
 </head>
 <body>
 <a class="skip" href="#main">Lewati ke konten utama</a>
 <div class="wrap">
 <header>
-  <h1>Catatan Harian</h1>
-  <p class="lead">Catat keuangan harian dan simpan tautan favorit di satu tempat. Data tersimpan di peramban ini.</p>
+  <h1>Toolkit Harian</h1>
+  <p class="lead">Catat keuangan, simpan tautan favorit, dan uji pengetahuan web Anda. Data tersimpan di peramban ini.</p>
 </header>
 
 <main id="main">
   <div role="tablist" aria-label="Menu aplikasi">
     <button role="tab" id="tab-tracker" aria-selected="true" aria-controls="panel-tracker" type="button">Expense Tracker</button>
     <button role="tab" id="tab-bookmark" aria-selected="false" aria-controls="panel-bookmark" tabindex="-1" type="button">Bookmark</button>
+    <button role="tab" id="tab-quiz" aria-selected="false" aria-controls="panel-quiz" tabindex="-1" type="button">Kuis</button>
     <button role="tab" id="tab-help" aria-selected="false" aria-controls="panel-help" tabindex="-1" type="button">Panduan</button>
   </div>
 
@@ -234,11 +263,55 @@ textarea{width:100%;min-height:5rem;padding:.5rem .625rem;font:inherit;color:inh
     </div>
   </section>
 
+  <section id="panel-quiz" role="tabpanel" aria-labelledby="tab-quiz" hidden>
+    <div class="card quiz">
+      <h2>Kuis Dasar Web</h2>
+
+      <div id="quiz-start">
+        <p id="quiz-intro"></p>
+        <p id="quiz-hs"></p>
+        <label class="chk" for="quiz-timer-on"><input type="checkbox" id="quiz-timer-on" checked> Gunakan batas waktu 20 detik per soal</label>
+        <button class="btn pri" id="quiz-start-btn" type="button">Mulai kuis</button>
+      </div>
+
+      <form id="quiz-play" novalidate hidden>
+        <div class="qhead">
+          <p id="quiz-step"></p>
+          <p class="timer" id="quiz-timer" hidden></p>
+        </div>
+        <progress id="quiz-progress" aria-label="Kemajuan kuis" value="0" max="1"></progress>
+        <fieldset class="qset" aria-describedby="quiz-err">
+          <legend id="quiz-q" tabindex="-1"></legend>
+          <div class="opts" id="quiz-options"></div>
+        </fieldset>
+        <p class="err" id="quiz-err" hidden></p>
+        <div class="fb" id="quiz-feedback" role="status"></div>
+        <div class="dact">
+          <button class="btn pri" id="quiz-answer" type="submit">Jawab</button>
+          <button class="btn pri" id="quiz-next" type="button" hidden>Soal berikutnya</button>
+        </div>
+      </form>
+
+      <div id="quiz-result" hidden>
+        <h3 id="quiz-result-title" tabindex="-1">Hasil kuis</h3>
+        <p class="big" id="quiz-score"></p>
+        <p id="quiz-msg"></p>
+        <p id="quiz-hs-note"></p>
+        <details>
+          <summary>Tinjau jawaban</summary>
+          <ol id="quiz-review"></ol>
+        </details>
+        <button class="btn pri" id="quiz-again" type="button">Ulangi kuis</button>
+      </div>
+    </div>
+  </section>
+
   <section id="panel-help" role="tabpanel" aria-labelledby="tab-help" tabindex="0" hidden>
     <div class="card">
       <h2>Cara memakai</h2>
       <p>Isi formulir di panel Expense Tracker, lalu pilih <strong>Tambah transaksi</strong>. Gunakan tombol <strong>Ubah</strong> atau <strong>Hapus</strong> pada setiap transaksi. Pencarian, filter, dan urutan langsung memperbarui daftar.</p>
       <p>Di panel Bookmark, URL harus diawali <code>http://</code> atau <code>https://</code>. Klik judul atau URL untuk membuka tautan di tab baru.</p>
+      <p>Di panel Kuis, jawab tiap soal lalu lihat umpan baliknya. Skor tertinggi disimpan di peramban. Batas waktu per soal bisa dimatikan sebelum kuis dimulai.</p>
       <p>Data disimpan di <code>localStorage</code> peramban ini dengan key terpisah untuk tiap fitur dan tidak dikirim ke server. Menghapus data situs akan menghapus catatan Anda.</p>
     </div>
   </section>
