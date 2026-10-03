@@ -1,18 +1,70 @@
 'use strict';
 
+/* =====================================================
+   TOOLKIT HARIAN – assets/script.js
+   Daftar isi:
+   1. Utilitas bersama & key localStorage
+   2. Catatan Pengeluaran Harian
+   3. Bookmark / Link Manager
+   4. Kuis Interaktif
+   5. Navigasi tab (mengingat tab terakhir)
+   Tiap fitur dibungkus IIFE sendiri agar state-nya terisolasi,
+   dan memakai key localStorage berbeda agar data tidak saling menimpa.
+   ===================================================== */
+
+/* =====================================================
+   1. UTILITAS BERSAMA
+   ===================================================== */
+const STORAGE_KEYS = Object.freeze({
+  expense: 'expense-tracker:v1',
+  bookmark: 'bookmark-manager:v1',
+  quiz: 'quiz-app:v1:highscore',
+  tab: 'toolkit:active-tab:v1'
+});
+
+const $ = (sel, root = document) => root.querySelector(sel);
+const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
+const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
+const option = (value, label = value) => { const o = document.createElement('option'); o.value = value; o.textContent = label; return o; };
+
+// Pengumuman untuk pembaca layar lewat live region global (#status)
+const announce = (msg) => {
+  const live = $('#status');
+  live.textContent = '';
+  requestAnimationFrame(() => { live.textContent = msg; });
+};
+
+// Salin field form tambah ke dialog ubah; semua id/for/aria-describedby diberi akhiran -e agar unik
+function cloneFields(source, target) {
+  const clone = source.cloneNode(true);
+  clone.removeAttribute('id');
+  $$('[id]', clone).forEach((n) => { n.id += '-e'; });
+  $$('[for]', clone).forEach((n) => n.setAttribute('for', `${n.getAttribute('for')}-e`));
+  $$('[aria-describedby]', clone).forEach((n) => n.setAttribute('aria-describedby', `${n.getAttribute('aria-describedby')}-e`));
+  target.replaceWith(clone);
+  return clone;
+}
+
+// Form pencarian tidak boleh submit (atribut onsubmit inline diblokir CSP)
+document.addEventListener('submit', (e) => {
+  if (e.target.matches('form[role=search]')) e.preventDefault();
+});
+
+/* =====================================================
+   2. CATATAN PENGELUARAN HARIAN
+   Key: STORAGE_KEYS.expense (array transaksi)
+   ===================================================== */
 (() => {
-  const STORAGE_KEY = 'expense-tracker:v1';
+  const STORAGE_KEY = STORAGE_KEYS.expense;
   const CATEGORIES = ['Makanan', 'Transportasi', 'Belanja', 'Tagihan', 'Hiburan', 'Kesehatan', 'Gaji', 'Lainnya'];
   const TYPES = ['Pemasukan', 'Pengeluaran'];
 
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
 
   const rupiah = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', maximumFractionDigits: 2 });
   const dateFmt = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' });
 
   const el = {
-    list: $('#list'), empty: $('#empty'), count: $('#count'), status: $('#status'),
+    list: $('#list'), empty: $('#empty'), count: $('#count'),
     sumIn: $('#sum-in'), sumOut: $('#sum-out'), sumBal: $('#sum-bal'),
     q: $('#q'), fType: $('#flt-type'), fCat: $('#flt-cat'), sort: $('#sort'),
     formAdd: $('#form-add'), formEdit: $('#form-edit'), editFields: $('#edit-fields'),
@@ -26,9 +78,7 @@
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
   };
-  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
   const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !Number.isNaN(Date.parse(s));
-  const announce = (msg) => { el.status.textContent = ''; requestAnimationFrame(() => { el.status.textContent = msg; }); };
   const toDate = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
 
   /* ---------- Persistensi ---------- */
@@ -86,7 +136,6 @@
   };
 
   /* ---------- Render ---------- */
-  const option = (value, label = value) => { const o = document.createElement('option'); o.value = value; o.textContent = label; return o; };
 
   function visibleItems() {
     const q = state.q.toLowerCase();
@@ -118,7 +167,7 @@
     const isIn = t.type === 'Pemasukan';
 
     const main = document.createElement('div');
-    const h = document.createElement('h3'); h.textContent = t.title;
+    const h = document.createElement('h4'); h.textContent = t.title;
     const meta = document.createElement('div'); meta.className = 'meta';
     const bType = document.createElement('span'); bType.className = `badge ${isIn ? 'in' : 'out'}`; bType.textContent = t.type;
     const bCat = document.createElement('span'); bCat.className = 'badge'; bCat.textContent = t.category;
@@ -165,14 +214,8 @@
     CATEGORIES.forEach((c) => { catSelect.append(option(c)); el.fCat.append(option(c)); });
     el.formAdd.elements.date.value = today();
 
-    // Klon field untuk dialog ubah dengan id unik
-    const clone = $('#fields').cloneNode(true);
-    clone.id = 'edit-fields-inner';
-    $$('[id]', clone).forEach((n) => { n.id += '-e'; });
-    $$('[for]', clone).forEach((n) => n.setAttribute('for', `${n.getAttribute('for')}-e`));
-    $$('[aria-describedby]', clone).forEach((n) => n.setAttribute('aria-describedby', `${n.getAttribute('aria-describedby')}-e`));
-    el.editFields.replaceWith(clone);
-    el.editFields = clone;
+    // Salin field form tambah ke dialog ubah
+    el.editFields = cloneFields($('#fields'), el.editFields);
   }
 
   el.formAdd.addEventListener('submit', (e) => {
@@ -245,54 +288,22 @@
   el.fCat.addEventListener('change', () => { state.cat = el.fCat.value; render(); });
   el.sort.addEventListener('change', () => { state.sort = el.sort.value; render(); });
 
-  /* ---------- Tab (ARIA + keyboard) ---------- */
-  const tabs = $$('[role=tab]');
-  function selectTab(tab, focus) {
-    tabs.forEach((t) => {
-      const on = t === tab;
-      t.setAttribute('aria-selected', on);
-      t.tabIndex = on ? 0 : -1;
-      $(`#${t.getAttribute('aria-controls')}`).hidden = !on;
-    });
-    if (focus) tab.focus();
-  }
-  tabs.forEach((tab, i) => {
-    tab.addEventListener('click', () => selectTab(tab));
-    tab.addEventListener('keydown', (e) => {
-      const keys = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 };
-      if (!(e.key in keys)) return;
-      e.preventDefault();
-      selectTab(tabs[(keys[e.key] + tabs.length) % tabs.length], true);
-    });
-  });
-
   /* ---------- Init ---------- */
   initForms();
   render();
 })();
 
 /* =====================================================
-   UTILITAS BERSAMA
-   Form pencarian tidak boleh submit (inline handler diblokir CSP)
-   ===================================================== */
-document.addEventListener('submit', (e) => {
-  if (e.target.matches('form[role=search]')) e.preventDefault();
-});
-
-/* =====================================================
-   BOOKMARK MANAGER
-   localStorage memakai key sendiri agar tidak bentrok
-   dengan Expense Tracker
+   3. BOOKMARK / LINK MANAGER
+   Key: STORAGE_KEYS.bookmark (array bookmark)
    ===================================================== */
 (() => {
-  const STORAGE_KEY = 'bookmark-manager:v1';
+  const STORAGE_KEY = STORAGE_KEYS.bookmark;
 
-  const $ = (sel, root = document) => root.querySelector(sel);
-  const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
   const dateFmt = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' });
 
   const el = {
-    list: $('#bm-list'), empty: $('#bm-empty'), count: $('#bm-count'), status: $('#status'),
+    list: $('#bm-list'), empty: $('#bm-empty'), count: $('#bm-count'),
     q: $('#bm-q'), fCat: $('#bm-flt-cat'), sort: $('#bm-sort'), cats: $('#bm-cats'),
     formAdd: $('#bm-form-add'), formEdit: $('#bm-form-edit'), editFields: $('#bm-edit-fields'),
     dlgEdit: $('#dlg-bm-edit'), dlgDel: $('#dlg-bm-del'), delMsg: $('#bm-del-msg'), delOk: $('#bm-del-ok')
@@ -300,8 +311,6 @@ document.addEventListener('submit', (e) => {
   const state = { items: load(), q: '', cat: 'all', sort: 'newest', editId: null, delId: null };
 
   /* ---------- Util ---------- */
-  const uid = () => (crypto.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`);
-  const announce = (msg) => { el.status.textContent = ''; requestAnimationFrame(() => { el.status.textContent = msg; }); };
 
   // Validasi URL: wajib http(s)://, tanpa spasi, host valid. Mengembalikan URL ternormalisasi atau null.
   function parseUrl(raw) {
@@ -369,7 +378,6 @@ document.addEventListener('submit', (e) => {
   };
 
   /* ---------- Render ---------- */
-  const option = (value, label = value) => { const o = document.createElement('option'); o.value = value; o.textContent = label; return o; };
 
   function refreshCategories() {
     const cats = [...new Set(state.items.map((b) => b.category))].sort((a, b) => a.localeCompare(b, 'id'));
@@ -407,7 +415,7 @@ document.addEventListener('submit', (e) => {
     const li = document.createElement('li');
     li.className = 'bm'; li.dataset.id = b.id;
 
-    const h = document.createElement('h3'); h.append(link(b.url, b.title));
+    const h = document.createElement('h4'); h.append(link(b.url, b.title));
     const url = document.createElement('p'); url.className = 'url'; url.append(link(b.url, b.url));
 
     const meta = document.createElement('div'); meta.className = 'meta';
@@ -450,14 +458,8 @@ document.addEventListener('submit', (e) => {
 
   /* ---------- Form tambah ---------- */
   function initForms() {
-    // Klon field untuk dialog ubah dengan id unik
-    const clone = $('#bm-fields').cloneNode(true);
-    clone.id = 'bm-edit-fields-inner';
-    $$('[id]', clone).forEach((n) => { n.id += '-e'; });
-    $$('[for]', clone).forEach((n) => n.setAttribute('for', `${n.getAttribute('for')}-e`));
-    $$('[aria-describedby]', clone).forEach((n) => n.setAttribute('aria-describedby', `${n.getAttribute('aria-describedby')}-e`));
-    el.editFields.replaceWith(clone);
-    el.editFields = clone;
+    // Salin field form tambah ke dialog ubah
+    el.editFields = cloneFields($('#bm-fields'), el.editFields);
   }
 
   el.formAdd.addEventListener('submit', (e) => {
@@ -533,12 +535,12 @@ document.addEventListener('submit', (e) => {
 })();
 
 /* =====================================================
-   QUIZ APP
+   4. KUIS INTERAKTIF
    Soal berupa array of object; skor tertinggi disimpan
-   di localStorage dengan key sendiri.
+   di STORAGE_KEYS.quiz.
    ===================================================== */
 (() => {
-  const STORAGE_KEY = 'quiz-app:v1:highscore';
+  const STORAGE_KEY = STORAGE_KEYS.quiz;
   const SECONDS_PER_QUESTION = 20;
 
   // Bank soal: tambah objek baru di sini, UI menyesuaikan otomatis.
@@ -570,15 +572,14 @@ document.addEventListener('submit', (e) => {
   ].filter((q) => q.question && Array.isArray(q.options) && q.options.length >= 4 &&
     Number.isInteger(q.answer) && q.answer >= 0 && q.answer < q.options.length);
 
-  const $ = (id) => document.getElementById(id);
   const el = {
-    start: $('quiz-start'), play: $('quiz-play'), result: $('quiz-result'),
-    intro: $('quiz-intro'), hs: $('quiz-hs'), timerOn: $('quiz-timer-on'), startBtn: $('quiz-start-btn'),
-    step: $('quiz-step'), timer: $('quiz-timer'), progress: $('quiz-progress'),
-    legend: $('quiz-q'), options: $('quiz-options'), err: $('quiz-err'), feedback: $('quiz-feedback'),
-    answerBtn: $('quiz-answer'), nextBtn: $('quiz-next'),
-    resultTitle: $('quiz-result-title'), score: $('quiz-score'), msg: $('quiz-msg'),
-    hsNote: $('quiz-hs-note'), review: $('quiz-review'), again: $('quiz-again')
+    start: $('#quiz-start'), play: $('#quiz-play'), result: $('#quiz-result'),
+    intro: $('#quiz-intro'), hs: $('#quiz-hs'), timerOn: $('#quiz-timer-on'), startBtn: $('#quiz-start-btn'),
+    step: $('#quiz-step'), timer: $('#quiz-timer'), progress: $('#quiz-progress'),
+    legend: $('#quiz-q'), options: $('#quiz-options'), err: $('#quiz-err'), feedback: $('#quiz-feedback'),
+    answerBtn: $('#quiz-answer'), nextBtn: $('#quiz-next'),
+    resultTitle: $('#quiz-result-title'), score: $('#quiz-score'), msg: $('#quiz-msg'),
+    hsNote: $('#quiz-hs-note'), review: $('#quiz-review'), again: $('#quiz-again')
   };
 
   const state = { phase: 'idle', round: [], index: 0, score: 0, answers: [], useTimer: true,
@@ -755,4 +756,42 @@ document.addEventListener('submit', (e) => {
   el.startBtn.disabled = QUESTIONS.length === 0;
   renderHigh();
   screen('start');
+})();
+
+/* =====================================================
+   5. NAVIGASI TAB
+   Pola WAI-ARIA tabs. Hanya satu panel aktif; tab terakhir
+   disimpan di STORAGE_KEYS.tab dan dipulihkan saat reload.
+   ===================================================== */
+(() => {
+  const tabs = $$('[role="tab"]');
+
+  function select(tab, { focus = false, persist = true } = {}) {
+    tabs.forEach((t) => {
+      const active = t === tab;
+      t.setAttribute('aria-selected', String(active));
+      t.tabIndex = active ? 0 : -1; // roving tabindex: hanya tab aktif yang masuk urutan Tab
+      $(`#${t.getAttribute('aria-controls')}`).hidden = !active;
+    });
+    if (persist) {
+      try { localStorage.setItem(STORAGE_KEYS.tab, tab.id); } catch { /* penyimpanan tidak tersedia */ }
+    }
+    if (focus) tab.focus();
+  }
+
+  tabs.forEach((tab, i) => {
+    tab.addEventListener('click', () => select(tab));
+    // Navigasi keyboard: panah kiri/kanan, Home, End
+    tab.addEventListener('keydown', (e) => {
+      const target = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
+      if (target === undefined) return;
+      e.preventDefault();
+      select(tabs[(target + tabs.length) % tabs.length], { focus: true });
+    });
+  });
+
+  // Pulihkan tab terakhir (validasi: id harus salah satu tab yang ada)
+  let saved = null;
+  try { saved = localStorage.getItem(STORAGE_KEYS.tab); } catch { /* abaikan */ }
+  select(tabs.find((t) => t.id === saved) || tabs[0], { persist: false });
 })();

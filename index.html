@@ -23,8 +23,10 @@ body{margin:0;background:var(--bg);color:var(--ink);font:1rem/1.5 system-ui,-app
 .skip{position:absolute;left:.5rem;top:-4rem;background:var(--surface);color:var(--ink);padding:.5rem 1rem;border:2px solid var(--focus);z-index:10}
 .skip:focus{top:.5rem}
 h1{font-size:clamp(1.5rem,4vw,2.25rem);line-height:1.15;margin:1rem 0 .25rem;letter-spacing:-.02em}
-h2{font-size:1.125rem;margin:0 0 .75rem}
-h3{font-size:1rem;margin:0;overflow-wrap:anywhere}
+h2{font-size:1.375rem;margin:0 0 .75rem}
+h3{font-size:1.125rem;margin:0 0 .75rem}
+h4{font-size:1rem;margin:0 0 .5rem;overflow-wrap:anywhere}
+.tx h4,.bm h4{margin:0}
 .lead{color:var(--muted);margin:0 0 1rem;max-width:60ch}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 [role=tablist]{display:flex;gap:.25rem;border-bottom:2px solid var(--line);margin-bottom:1rem}
@@ -77,7 +79,7 @@ textarea{width:100%;min-height:5rem;padding:.5rem .625rem;font:inherit;color:inh
 .bm h3 a{color:var(--ink)}
 .bm .url{margin:0;font-size:.875rem}
 .bm .note{margin:0;color:var(--muted);overflow-wrap:anywhere}
-.quiz{max-width:42rem;margin:0 auto}
+.quiz{max-width:42rem}
 .qhead{display:flex;justify-content:space-between;gap:.5rem 1rem;flex-wrap:wrap;font-weight:600;margin-bottom:.5rem}
 .qhead p{margin:0}
 .timer.low{color:var(--out)}
@@ -104,7 +106,7 @@ progress{width:100%;height:.625rem;accent-color:var(--brand);margin-bottom:1rem}
 summary{cursor:pointer;font-weight:600;min-height:44px;display:flex;align-items:center}
 #quiz-review{padding-left:1.25rem;display:grid;gap:.75rem}
 #quiz-review p{margin:.125rem 0}
-h3:focus,legend:focus{outline-offset:4px}
+h4:focus,legend:focus{outline-offset:4px}
 </style>
 </head>
 <body>
@@ -117,14 +119,13 @@ h3:focus,legend:focus{outline-offset:4px}
 
 <main id="main">
   <div role="tablist" aria-label="Menu aplikasi">
-    <button role="tab" id="tab-tracker" aria-selected="true" aria-controls="panel-tracker" type="button">Expense Tracker</button>
+    <button role="tab" id="tab-tracker" aria-selected="true" aria-controls="panel-tracker" type="button">Pengeluaran</button>
     <button role="tab" id="tab-bookmark" aria-selected="false" aria-controls="panel-bookmark" tabindex="-1" type="button">Bookmark</button>
     <button role="tab" id="tab-quiz" aria-selected="false" aria-controls="panel-quiz" tabindex="-1" type="button">Kuis</button>
-    <button role="tab" id="tab-help" aria-selected="false" aria-controls="panel-help" tabindex="-1" type="button">Panduan</button>
   </div>
 
   <section id="panel-tracker" role="tabpanel" aria-labelledby="tab-tracker">
-    <h2 class="vh">Ringkasan keuangan</h2>
+    <h2>Catatan Pengeluaran Harian</h2>
     <dl class="sum">
       <div><dt>Total pemasukan</dt><dd class="in" id="sum-in">Rp0</dd></div>
       <div><dt>Total pengeluaran</dt><dd class="out" id="sum-out">Rp0</dd></div>
@@ -133,7 +134,7 @@ h3:focus,legend:focus{outline-offset:4px}
 
     <div class="cols">
       <section class="card" aria-labelledby="h-add">
-        <h2 id="h-add">Tambah transaksi</h2>
+        <h3 id="h-add">Tambah transaksi</h3>
         <form id="form-add" novalidate>
           <div id="fields">
             <div class="field">
@@ -170,7 +171,7 @@ h3:focus,legend:focus{outline-offset:4px}
       </section>
 
       <section class="card" aria-labelledby="h-list">
-        <h2 id="h-list">Daftar transaksi</h2>
+        <h3 id="h-list">Daftar transaksi</h3>
         <form class="bar" id="toolbar" role="search" aria-label="Cari dan filter transaksi">
           <div class="field grow">
             <label for="q">Cari judul</label>
@@ -206,9 +207,10 @@ h3:focus,legend:focus{outline-offset:4px}
   </section>
 
   <section id="panel-bookmark" role="tabpanel" aria-labelledby="tab-bookmark" hidden>
+    <h2>Bookmark / Link Manager</h2>
     <div class="cols">
       <section class="card" aria-labelledby="h-bm-add">
-        <h2 id="h-bm-add">Tambah bookmark</h2>
+        <h3 id="h-bm-add">Tambah bookmark</h3>
         <form id="bm-form-add" novalidate>
           <div id="bm-fields">
             <div class="field">
@@ -237,7 +239,7 @@ h3:focus,legend:focus{outline-offset:4px}
       </section>
 
       <section class="card" aria-labelledby="h-bm-list">
-        <h2 id="h-bm-list">Daftar bookmark</h2>
+        <h3 id="h-bm-list">Daftar bookmark</h3>
         <form class="bar" role="search" aria-label="Cari dan urutkan bookmark">
           <div class="field grow">
             <label for="bm-q">Cari nama, URL, atau kategori</label>
@@ -264,8 +266,9 @@ h3:focus,legend:focus{outline-offset:4px}
   </section>
 
   <section id="panel-quiz" role="tabpanel" aria-labelledby="tab-quiz" hidden>
+    <h2>Kuis Interaktif</h2>
     <div class="card quiz">
-      <h2>Kuis Dasar Web</h2>
+      <h3>Kuis Dasar Web</h3>
 
       <div id="quiz-start">
         <p id="quiz-intro"></p>
@@ -293,7 +296,7 @@ h3:focus,legend:focus{outline-offset:4px}
       </form>
 
       <div id="quiz-result" hidden>
-        <h3 id="quiz-result-title" tabindex="-1">Hasil kuis</h3>
+        <h4 id="quiz-result-title" tabindex="-1">Hasil kuis</h4>
         <p class="big" id="quiz-score"></p>
         <p id="quiz-msg"></p>
         <p id="quiz-hs-note"></p>
@@ -305,19 +308,15 @@ h3:focus,legend:focus{outline-offset:4px}
       </div>
     </div>
   </section>
-
-  <section id="panel-help" role="tabpanel" aria-labelledby="tab-help" tabindex="0" hidden>
-    <div class="card">
-      <h2>Cara memakai</h2>
-      <p>Isi formulir di panel Expense Tracker, lalu pilih <strong>Tambah transaksi</strong>. Gunakan tombol <strong>Ubah</strong> atau <strong>Hapus</strong> pada setiap transaksi. Pencarian, filter, dan urutan langsung memperbarui daftar.</p>
-      <p>Di panel Bookmark, URL harus diawali <code>http://</code> atau <code>https://</code>. Klik judul atau URL untuk membuka tautan di tab baru.</p>
-      <p>Di panel Kuis, jawab tiap soal lalu lihat umpan baliknya. Skor tertinggi disimpan di peramban. Batas waktu per soal bisa dimatikan sebelum kuis dimulai.</p>
-      <p>Data disimpan di <code>localStorage</code> peramban ini dengan key terpisah untuk tiap fitur dan tidak dikirim ke server. Menghapus data situs akan menghapus catatan Anda.</p>
-    </div>
-  </section>
 </main>
 
-<footer><p>Dibuat dengan HTML, CSS, dan JavaScript murni.</p></footer>
+<footer>
+  <details>
+    <summary>Tentang penyimpanan data</summary>
+    <p>Semua data tersimpan di <code>localStorage</code> peramban ini dan tidak dikirim ke server. Tiap fitur memakai key sendiri: <code>expense-tracker:v1</code>, <code>bookmark-manager:v1</code>, <code>quiz-app:v1:highscore</code>, dan <code>toolkit:active-tab:v1</code> untuk tab terakhir. Menghapus data situs akan menghapus catatan Anda.</p>
+  </details>
+  <p>Dibuat dengan HTML, CSS, dan JavaScript murni tanpa backend.</p>
+</footer>
 </div>
 
 <div class="vh" id="status" role="status" aria-live="polite"></div>
