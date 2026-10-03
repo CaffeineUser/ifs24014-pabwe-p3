@@ -7,7 +7,7 @@
    2. Catatan Pengeluaran Harian
    3. Bookmark / Link Manager
    4. Kuis Interaktif
-   5. Router (3 path via hash) & navigasi tab
+   5. Router (3 URL path) & navigasi tab
    Tiap fitur dibungkus IIFE sendiri agar state-nya terisolasi,
    dan memakai key localStorage berbeda agar data tidak saling menimpa.
    ===================================================== */
@@ -760,17 +760,18 @@ document.addEventListener('submit', (e) => {
 
 /* =====================================================
    5. ROUTER & NAVIGASI TAB
-   Satu file HTML, tiga path lewat hash:
-     index.html#/pengeluaran   #/bookmark   #/kuis
-   Hash dipilih agar jalan di file:// dan hosting statis mana pun
-   tanpa rewrite server. Prioritas saat halaman dibuka:
-   hash di URL > tab terakhir (localStorage) > tab pertama.
+   Satu file HTML, tiga path lewat URL bersih:
+     /pengeluaran   /bookmark   /kuis
+   Membutuhkan web server lokal untuk fallback ke index.html.
+   Prioritas saat halaman dibuka:
+   URL > tab terakhir (localStorage) > tab pertama.
    ===================================================== */
 (() => {
   const BASE_TITLE = 'Toolkit Harian';
   const tabs = $$('[role="tab"]');
   const byRoute = (r) => tabs.find((t) => t.dataset.route === r);
-  const hashRoute = () => location.hash.replace(/^#\/?/, '').split(/[/?]/)[0]; // "#/kuis" -> "kuis"
+  // Ambil route dari URL pathname (misal: /pengeluaran -> pengeluaran)
+  const pathRoute = () => window.location.pathname.replace(/^\/+/, '').split(/[/?#]/)[0];
   const readSaved = () => { try { return localStorage.getItem(STORAGE_KEYS.tab); } catch { return null; } };
   let current = null;
 
@@ -790,10 +791,12 @@ document.addEventListener('submit', (e) => {
     if (focus) tab.focus();
   }
 
-  // Pindah rute: mengubah hash menambah entri riwayat, jadi tombol Back/Forward berfungsi
+  // Pindah rute: ubah URL menggunakan pushState agar riwayat tersimpan dan tampilan berubah tanpa muat ulang
   function go(tab, opts) {
-    const target = `#/${tab.dataset.route}`;
-    if (location.hash !== target) location.hash = target;
+    const target = `/${tab.dataset.route}`;
+    if (window.location.pathname !== target) {
+      history.pushState(null, '', target);
+    }
     show(tab, opts);
   }
 
@@ -809,15 +812,15 @@ document.addEventListener('submit', (e) => {
     });
   });
 
-  // Back/Forward atau hash diubah manual; hash tidak dikenal dikembalikan ke rute aktif
-  window.addEventListener('hashchange', () => {
-    const tab = byRoute(hashRoute());
+  // Tombol Back/Forward ditekan pada browser
+  window.addEventListener('popstate', () => {
+    const tab = byRoute(pathRoute());
     if (tab) show(tab);
-    else history.replaceState(null, '', `#/${current}`);
+    else history.replaceState(null, '', `/${current}`);
   });
 
   // Rute awal; replaceState merapikan URL tanpa menambah riwayat
-  const initial = byRoute(hashRoute()) || byRoute(readSaved()) || tabs[0];
-  try { history.replaceState(null, '', `#/${initial.dataset.route}`); } catch { /* abaikan */ }
+  const initial = byRoute(pathRoute()) || byRoute(readSaved()) || tabs[0];
+  try { history.replaceState(null, '', `/${initial.dataset.route}`); } catch { /* abaikan */ }
   show(initial);
 })();
