@@ -7,7 +7,7 @@
    2. Catatan Pengeluaran Harian
    3. Bookmark / Link Manager
    4. Kuis Interaktif
-   5. Navigasi tab (mengingat tab terakhir)
+   5. Router (3 path via hash) & navigasi tab
    Tiap fitur dibungkus IIFE sendiri agar state-nya terisolasi,
    dan memakai key localStorage berbeda agar data tidak saling menimpa.
    ===================================================== */
@@ -759,39 +759,65 @@ document.addEventListener('submit', (e) => {
 })();
 
 /* =====================================================
-   5. NAVIGASI TAB
-   Pola WAI-ARIA tabs. Hanya satu panel aktif; tab terakhir
-   disimpan di STORAGE_KEYS.tab dan dipulihkan saat reload.
+   5. ROUTER & NAVIGASI TAB
+   Satu file HTML, tiga path lewat hash:
+     index.html#/pengeluaran   #/bookmark   #/kuis
+   Hash dipilih agar jalan di file:// dan hosting statis mana pun
+   tanpa rewrite server. Prioritas saat halaman dibuka:
+   hash di URL > tab terakhir (localStorage) > tab pertama.
    ===================================================== */
 (() => {
+  const BASE_TITLE = 'Toolkit Harian';
   const tabs = $$('[role="tab"]');
+  const byRoute = (r) => tabs.find((t) => t.dataset.route === r);
+  const hashRoute = () => location.hash.replace(/^#\/?/, '').split(/[/?]/)[0]; // "#/kuis" -> "kuis"
+  const readSaved = () => { try { return localStorage.getItem(STORAGE_KEYS.tab); } catch { return null; } };
+  let current = null;
 
-  function select(tab, { focus = false, persist = true } = {}) {
+  // Tampilkan satu panel, sembunyikan sisanya, perbarui judul dokumen & simpan rute
+  function show(tab, { focus = false } = {}) {
     tabs.forEach((t) => {
       const active = t === tab;
       t.setAttribute('aria-selected', String(active));
-      t.tabIndex = active ? 0 : -1; // roving tabindex: hanya tab aktif yang masuk urutan Tab
+      t.tabIndex = active ? 0 : -1; // roving tabindex
       $(`#${t.getAttribute('aria-controls')}`).hidden = !active;
     });
-    if (persist) {
-      try { localStorage.setItem(STORAGE_KEYS.tab, tab.id); } catch { /* penyimpanan tidak tersedia */ }
+    document.title = `${tab.dataset.title} – ${BASE_TITLE}`;
+    if (tab.dataset.route !== current) {
+      current = tab.dataset.route;
+      try { localStorage.setItem(STORAGE_KEYS.tab, current); } catch { /* penyimpanan tidak tersedia */ }
     }
     if (focus) tab.focus();
   }
 
+  // Pindah rute: mengubah hash menambah entri riwayat, jadi tombol Back/Forward berfungsi
+  function go(tab, opts) {
+    const target = `#/${tab.dataset.route}`;
+    if (location.hash !== target) location.hash = target;
+    show(tab, opts);
+  }
+
   tabs.forEach((tab, i) => {
-    tab.addEventListener('click', () => select(tab));
-    // Navigasi keyboard: panah kiri/kanan, Home, End
+    tab.addEventListener('click', (e) => { e.preventDefault(); go(tab); });
+    // Keyboard: panah kiri/kanan, Home, End, Spasi (Enter sudah memicu klik pada tautan)
     tab.addEventListener('keydown', (e) => {
+      if (e.key === ' ') { e.preventDefault(); go(tab); return; }
       const target = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: tabs.length - 1 }[e.key];
       if (target === undefined) return;
       e.preventDefault();
-      select(tabs[(target + tabs.length) % tabs.length], { focus: true });
+      go(tabs[(target + tabs.length) % tabs.length], { focus: true });
     });
   });
 
-  // Pulihkan tab terakhir (validasi: id harus salah satu tab yang ada)
-  let saved = null;
-  try { saved = localStorage.getItem(STORAGE_KEYS.tab); } catch { /* abaikan */ }
-  select(tabs.find((t) => t.id === saved) || tabs[0], { persist: false });
+  // Back/Forward atau hash diubah manual; hash tidak dikenal dikembalikan ke rute aktif
+  window.addEventListener('hashchange', () => {
+    const tab = byRoute(hashRoute());
+    if (tab) show(tab);
+    else history.replaceState(null, '', `#/${current}`);
+  });
+
+  // Rute awal; replaceState merapikan URL tanpa menambah riwayat
+  const initial = byRoute(hashRoute()) || byRoute(readSaved()) || tabs[0];
+  try { history.replaceState(null, '', `#/${initial.dataset.route}`); } catch { /* abaikan */ }
+  show(initial);
 })();

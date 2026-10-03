@@ -31,6 +31,7 @@ h4{font-size:1rem;margin:0 0 .5rem;overflow-wrap:anywhere}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 [role=tablist]{display:flex;gap:.25rem;border-bottom:2px solid var(--line);margin-bottom:1rem}
 [role=tab]{font:inherit;font-weight:600;color:var(--muted);background:none;border:0;border-bottom:4px solid transparent;margin-bottom:-2px;padding:.625rem 1rem;cursor:pointer;min-height:44px}
+a[role=tab]{display:inline-flex;align-items:center;text-decoration:none}
 [role=tab][aria-selected=true]{color:var(--ink);border-bottom-color:var(--brand)}
 [hidden]{display:none!important}
 .sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(10rem,1fr));gap:.75rem;margin:0 0 1rem}
@@ -119,9 +120,9 @@ h4:focus,legend:focus{outline-offset:4px}
 
 <main id="main">
   <div role="tablist" aria-label="Menu aplikasi">
-    <button role="tab" id="tab-tracker" aria-selected="true" aria-controls="panel-tracker" type="button">Pengeluaran</button>
-    <button role="tab" id="tab-bookmark" aria-selected="false" aria-controls="panel-bookmark" tabindex="-1" type="button">Bookmark</button>
-    <button role="tab" id="tab-quiz" aria-selected="false" aria-controls="panel-quiz" tabindex="-1" type="button">Kuis</button>
+    <a role="tab" id="tab-tracker" href="#/pengeluaran" data-route="pengeluaran" data-title="Catatan Pengeluaran Harian" aria-selected="true" aria-controls="panel-tracker">Pengeluaran</a>
+    <a role="tab" id="tab-bookmark" href="#/bookmark" data-route="bookmark" data-title="Bookmark / Link Manager" aria-selected="false" aria-controls="panel-bookmark" tabindex="-1">Bookmark</a>
+    <a role="tab" id="tab-quiz" href="#/kuis" data-route="kuis" data-title="Kuis Interaktif" aria-selected="false" aria-controls="panel-quiz" tabindex="-1">Kuis</a>
   </div>
 
   <section id="panel-tracker" role="tabpanel" aria-labelledby="tab-tracker">
