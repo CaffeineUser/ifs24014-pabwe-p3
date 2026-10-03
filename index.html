@@ -3,14 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Catatan Pengeluaran Harian – Pantau Pemasukan, Pengeluaran, dan Saldo</title>
-<meta name="description" content="Catat pemasukan dan pengeluaran harian, cari dan filter transaksi, lihat saldo secara langsung. Data tersimpan aman di perangkat Anda.">
+<title>Catatan Harian – Expense Tracker dan Bookmark Manager</title>
+<meta name="description" content="Catat pemasukan dan pengeluaran harian, simpan tautan favorit dengan kategori, cari dan urutkan. Data tersimpan di perangkat Anda.">
 <meta name="robots" content="index, follow">
 <meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#0f5c4d">
 <meta property="og:type" content="website">
-<meta property="og:title" content="Catatan Pengeluaran Harian">
-<meta property="og:description" content="Pantau pemasukan, pengeluaran, dan saldo harian. Data tersimpan di perangkat Anda.">
+<meta property="og:title" content="Catatan Harian: Expense Tracker dan Bookmark">
+<meta property="og:description" content="Pantau keuangan harian dan simpan tautan favorit. Data tersimpan di perangkat Anda.">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'unsafe-inline'; img-src data:; base-uri 'none'; form-action 'none'">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230f5c4d'/%3E%3Cpath d='M9 22V10h14M9 16h10M9 22h14' stroke='%23fff' stroke-width='3' fill='none'/%3E%3C/svg%3E">
 <script src="assets/script.js" defer></script>
@@ -71,19 +71,26 @@ dialog::backdrop{background:rgba(0,0,0,.55)}
 .vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
 footer{color:var(--muted);font-size:.875rem;padding:1.5rem 0}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important;transition:none!important;animation:none!important}}
+textarea{width:100%;min-height:5rem;padding:.5rem .625rem;font:inherit;color:inherit;background:var(--bg);border:1px solid var(--muted);border-radius:.375rem;resize:vertical}
+.bm{display:grid;gap:.375rem;padding:.75rem;border:1px solid var(--line);border-radius:.5rem;background:var(--bg)}
+.bm a{color:var(--brand);text-decoration:underline;text-underline-offset:.2em;overflow-wrap:anywhere}
+.bm h3 a{color:var(--ink)}
+.bm .url{margin:0;font-size:.875rem}
+.bm .note{margin:0;color:var(--muted);overflow-wrap:anywhere}
 </style>
 </head>
 <body>
 <a class="skip" href="#main">Lewati ke konten utama</a>
 <div class="wrap">
 <header>
-  <h1>Catatan Pengeluaran Harian</h1>
-  <p class="lead">Catat setiap pemasukan dan pengeluaran, lalu pantau saldo Anda. Data tersimpan di peramban ini.</p>
+  <h1>Catatan Harian</h1>
+  <p class="lead">Catat keuangan harian dan simpan tautan favorit di satu tempat. Data tersimpan di peramban ini.</p>
 </header>
 
 <main id="main">
   <div role="tablist" aria-label="Menu aplikasi">
     <button role="tab" id="tab-tracker" aria-selected="true" aria-controls="panel-tracker" type="button">Expense Tracker</button>
+    <button role="tab" id="tab-bookmark" aria-selected="false" aria-controls="panel-bookmark" tabindex="-1" type="button">Bookmark</button>
     <button role="tab" id="tab-help" aria-selected="false" aria-controls="panel-help" tabindex="-1" type="button">Panduan</button>
   </div>
 
@@ -135,7 +142,7 @@ footer{color:var(--muted);font-size:.875rem;padding:1.5rem 0}
 
       <section class="card" aria-labelledby="h-list">
         <h2 id="h-list">Daftar transaksi</h2>
-        <form class="bar" id="toolbar" role="search" aria-label="Cari dan filter transaksi" onsubmit="return false">
+        <form class="bar" id="toolbar" role="search" aria-label="Cari dan filter transaksi">
           <div class="field grow">
             <label for="q">Cari judul</label>
             <input id="q" type="search" autocomplete="off" placeholder="Contoh: makan siang">
@@ -169,11 +176,70 @@ footer{color:var(--muted);font-size:.875rem;padding:1.5rem 0}
     </div>
   </section>
 
+  <section id="panel-bookmark" role="tabpanel" aria-labelledby="tab-bookmark" hidden>
+    <div class="cols">
+      <section class="card" aria-labelledby="h-bm-add">
+        <h2 id="h-bm-add">Tambah bookmark</h2>
+        <form id="bm-form-add" novalidate>
+          <div id="bm-fields">
+            <div class="field">
+              <label for="bm-title">Nama</label>
+              <input id="bm-title" name="title" type="text" maxlength="80" autocomplete="off" required aria-describedby="bm-title-err">
+              <p class="err" id="bm-title-err" hidden></p>
+            </div>
+            <div class="field">
+              <label for="bm-url">URL</label>
+              <input id="bm-url" name="url" type="text" inputmode="url" autocomplete="off" spellcheck="false" placeholder="https://contoh.com" required aria-describedby="bm-url-err">
+              <p class="err" id="bm-url-err" hidden></p>
+            </div>
+            <div class="field">
+              <label for="bm-category">Kategori</label>
+              <input id="bm-category" name="category" type="text" maxlength="30" autocomplete="off" list="bm-cats" required aria-describedby="bm-category-err">
+              <p class="err" id="bm-category-err" hidden></p>
+            </div>
+            <div class="field">
+              <label for="bm-note">Catatan (opsional)</label>
+              <textarea id="bm-note" name="note" maxlength="200"></textarea>
+            </div>
+          </div>
+          <datalist id="bm-cats"></datalist>
+          <button class="btn pri" type="submit">Tambah bookmark</button>
+        </form>
+      </section>
+
+      <section class="card" aria-labelledby="h-bm-list">
+        <h2 id="h-bm-list">Daftar bookmark</h2>
+        <form class="bar" role="search" aria-label="Cari dan urutkan bookmark">
+          <div class="field grow">
+            <label for="bm-q">Cari nama, URL, atau kategori</label>
+            <input id="bm-q" type="search" autocomplete="off">
+          </div>
+          <div class="field">
+            <label for="bm-flt-cat">Kategori</label>
+            <select id="bm-flt-cat"><option value="all">Semua kategori</option></select>
+          </div>
+          <div class="field">
+            <label for="bm-sort">Urutkan</label>
+            <select id="bm-sort">
+              <option value="newest">Terbaru</option>
+              <option value="az">Judul A–Z</option>
+              <option value="za">Judul Z–A</option>
+            </select>
+          </div>
+        </form>
+        <p class="count" id="bm-count"></p>
+        <ul class="list" id="bm-list"></ul>
+        <div class="empty" id="bm-empty" hidden></div>
+      </section>
+    </div>
+  </section>
+
   <section id="panel-help" role="tabpanel" aria-labelledby="tab-help" tabindex="0" hidden>
     <div class="card">
       <h2>Cara memakai</h2>
       <p>Isi formulir di panel Expense Tracker, lalu pilih <strong>Tambah transaksi</strong>. Gunakan tombol <strong>Ubah</strong> atau <strong>Hapus</strong> pada setiap transaksi. Pencarian, filter, dan urutan langsung memperbarui daftar.</p>
-      <p>Data disimpan di <code>localStorage</code> peramban ini dan tidak dikirim ke server. Menghapus data situs akan menghapus catatan Anda.</p>
+      <p>Di panel Bookmark, URL harus diawali <code>http://</code> atau <code>https://</code>. Klik judul atau URL untuk membuka tautan di tab baru.</p>
+      <p>Data disimpan di <code>localStorage</code> peramban ini dengan key terpisah untuk tiap fitur dan tidak dikirim ke server. Menghapus data situs akan menghapus catatan Anda.</p>
     </div>
   </section>
 </main>
@@ -200,6 +266,25 @@ footer{color:var(--muted);font-size:.875rem;padding:1.5rem 0}
   <div class="dact">
     <button class="btn" type="button" data-close>Batal</button>
     <button class="btn dng" type="button" id="del-ok">Hapus transaksi</button>
+  </div>
+</dialog>
+<dialog id="dlg-bm-edit" aria-labelledby="h-bm-edit">
+  <h2 id="h-bm-edit">Ubah bookmark</h2>
+  <form id="bm-form-edit" novalidate>
+    <div id="bm-edit-fields"></div>
+    <div class="dact">
+      <button class="btn" type="button" data-close>Batal</button>
+      <button class="btn pri" type="submit">Simpan perubahan</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-bm-del" aria-labelledby="h-bm-del" aria-describedby="bm-del-msg">
+  <h2 id="h-bm-del">Hapus bookmark?</h2>
+  <p id="bm-del-msg"></p>
+  <div class="dact">
+    <button class="btn" type="button" data-close>Batal</button>
+    <button class="btn dng" type="button" id="bm-del-ok">Hapus bookmark</button>
   </div>
 </dialog>
 </body>
